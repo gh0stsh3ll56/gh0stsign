@@ -63,13 +63,26 @@ def generate_report(report_file, findings):
 
         num_signed = sum(1 for finding in findings if finding['status'] == 'Signed')
         num_unsigned = sum(1 for finding in findings if finding['status'] == 'Not signed')
+
+        f.write("Summary Report:\n\n")
+        f.write(f"Signed Files ({num_signed}):\n")
+        for finding in findings:
+            if finding['status'] == 'Signed':
+                f.write(f"- {finding['file_path']}\n")
+        f.write("\n")
+
+        f.write(f"Not Signed Files ({num_unsigned}):\n")
+        for finding in findings:
+            if finding['status'] == 'Not signed':
+                f.write(f"- {finding['file_path']}\n")
+        f.write("\n")
+
         f.write(f"Number of Signed Files: {num_signed}\n")
-        f.write(f"Number of Unsigned Files: {num_unsigned}\n")
+        f.write(f"Number of Not Signed Files: {num_unsigned}\n")
 
 def print_banner():
     banner = r"""
-    
-              ('-. .-.              .-')     .-') _      .-')                                .-') _  
+               ('-. .-.              .-')     .-') _      .-')                                .-') _  
              ( OO )  /             ( OO ).  (  OO) )    ( OO ).                             ( OO ) ) 
   ,----.     ,--. ,--.   .----.   (_)---\_) /     '._  (_)---\_)   ,-.-')    ,----.     ,--./ ,--,'  
  '  .-./-')  |  | |  |  /  ..  \  /    _ |  |'--...__) /    _ |    |  |OO)  '  .-./-')  |   \ |  |\  
@@ -77,8 +90,7 @@ def print_banner():
  |  | .--, \ |       | |  |  '  |  '..`''.)    |  |     '..`''.)   |  |(_/  |  | .--, \ |  .     |/  
 (|  | '. (_/ |  .-.  | '  \  /  ' .-._)   \    |  |    .-._)   \  ,|  |_.' (|  | '. (_/ |  |\    |   
  |  '--'  |  |  | |  |  \  `'  /  \       /    |  |    \       / (_|  |     |  '--'  |  |  | \   |   
-  `------'   `--' `--'   `---''    `-----'     `--'     `-----'    `--'      `------'   `--'  `--'   
-
+  `------'   `--' `--'   `---''    `-----'     `--'     `-----'    `--'      `------'   `--'  `--'  
                                                              
     """
     description = "A tool to check digital signatures of files in a directory."
