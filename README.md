@@ -5,13 +5,18 @@ Thick Client Digital Signature Checking Tool
 
 `gh0stsign` is a command-line tool designed to check the digital signatures of files within a specified directory or a single file. It helps users identify whether files have valid digital signatures or are unsigned. The tool is cross-platform and can be used on both Windows and Linux operating systems.
 
+## Requirements
+- For Windows: Ensure you have the `sigcheck` utility available in your system's PATH. You can download it from Sysinternals Suite: https://docs.microsoft.com/en-us/sysinternals/downloads/sysinternals-suite
+- For Linux: Ensure you have the `codesign` utility available in your system's PATH. This utility is typically included in the `osslsigncode` package. Install it using your package manager if needed.
+
+
 ## Features
 
 - Check the digital signatures of individual files or all files within a directory.
 - Cross-platform support for both Windows and Linux.
 - Option to enable verbose mode to display detailed verification information.
 - Generate a detailed findings report containing verification results.
-- Summary report includes the total number of signed and unsigned files.
+- Display detailed findings including signature status, verification output, signer, digest algorithm, and timestamp (on Windows).
 
 ## Getting Started
 
