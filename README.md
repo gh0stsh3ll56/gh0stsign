@@ -52,7 +52,7 @@ The default report filename is `gh0stsign_findings_report.txt`, but you can prov
 
 Created by: gh0stsh3ll5619
 GitHub: gh0stsh3ll5619
-Company: Aressec.com
+
 
 ## License
 
