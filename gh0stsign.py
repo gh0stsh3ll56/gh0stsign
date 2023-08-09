@@ -1,23 +1,84 @@
 import os
 import sys
 import subprocess
+import ctypes
+from datetime import datetime
 
 def is_file_signed(file_path):
     if sys.platform.startswith('win'):
         try:
-            result = subprocess.run(['sigcheck', '-q', '-nobanner', file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            return result.returncode == 0, result.stdout if result.returncode == 0 else result.stderr
+            result = subprocess.run(['sigcheck', '-q', '-nobanner', '-a', file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            output = result.stdout.strip() + result.stderr.strip()  # Combine both output streams
+            is_signed = 'Verified:' in output
+            verification_output = output
+            if is_signed:
+                signer, digest_algorithm, timestamp = get_signature_properties(file_path)
+                verification_output += f"\nSigner: {signer}\nDigest Algorithm: {digest_algorithm}\nTimestamp: {timestamp}"
+            return is_signed, verification_output
         except FileNotFoundError:
             return False, "sigcheck utility not found"
     elif sys.platform.startswith('linux'):
         try:
-            result = subprocess.run(['codesign', '--verify', file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            return result.returncode == 0, result.stdout if result.returncode == 0 else result.stderr
+            result = subprocess.run(['codesign', '--display', '--verbose=4', file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            output = result.stdout.strip() + result.stderr.strip()  # Combine both output streams
+            is_signed = 'satisfies its Designated Requirement' in output
+            verification_output = output
+            if is_signed:
+                signer, digest_algorithm, timestamp = get_signature_properties(file_path)
+                verification_output += f"\nSigner: {signer}\nDigest Algorithm: {digest_algorithm}\nTimestamp: {timestamp}"
+            return is_signed, verification_output
         except FileNotFoundError:
             return False, "codesign utility not found"
     else:
         print("Unsupported platform.")
         return False, "Unsupported platform"
+
+def get_signature_properties(file_path):
+    if sys.platform.startswith('win'):
+        try:
+            pinfo = os.path.abspath(file_path)
+            data = ctypes.windll.version.GetFileVersionInfoW(pinfo, "\\")
+            for language, codepage in data:
+                if language == 0x409 and codepage == 1200:
+                    break
+            else:
+                raise ValueError("English (United States) language codepage 1200 not found")
+
+            struct = (ctypes.c_ushort * 4)()
+            ctypes.windll.version.VerQueryValueW(data, u"\\VarFileInfo\\Translation", ctypes.byref(struct), None)
+            lang, codepage = struct[:2]
+            fmt = u"\\StringFileInfo\\{:04x}{:04x}\\{}"
+
+            properties = [
+                ("CompanyName", "Signer"),
+                ("FileDescription", "Description"),
+                ("ProductName", "Product"),
+                ("ProductVersion", "Version")
+            ]
+            
+            signer = None
+            for prop, label in properties:
+                prop_path = fmt.format(lang, codepage, prop)
+                size = ctypes.c_uint()
+                ctypes.windll.version.VerQueryValueW(data, prop_path, None, ctypes.byref(size))
+                buf = ctypes.create_unicode_buffer(size.value)
+                ctypes.windll.version.VerQueryValueW(data, prop_path, ctypes.byref(buf), None)
+                if label == "Signer":
+                    signer = buf.value
+
+            try:
+                timestamp = datetime.utcfromtimestamp(os.path.getmtime(file_path)).strftime('%Y-%m-%d %H:%M:%S')
+            except Exception as e:
+                timestamp = "N/A"
+
+            return signer, "SHA256", timestamp
+
+        except Exception as e:
+            print("Error retrieving signature properties:", e)
+            return None, None, None
+
+    elif sys.platform.startswith('linux'):
+        return None, None, None
 
 def check_directory(directory_path, verbose):
     if not os.path.exists(directory_path):
@@ -30,6 +91,8 @@ def check_directory(directory_path, verbose):
         for file in files:
             file_path = os.path.join(root, file)
             is_signed, verification_output = is_file_signed(file_path)
+            signature_properties = get_signature_properties(file_path)
+            
             if is_signed:
                 status = 'Signed'
             else:
@@ -38,7 +101,8 @@ def check_directory(directory_path, verbose):
             finding = {
                 'file_path': file_path,
                 'status': status,
-                'verification_output': verification_output
+                'verification_output': verification_output,
+                'signature_properties': signature_properties
             }
 
             findings.append(finding)
@@ -47,9 +111,12 @@ def check_directory(directory_path, verbose):
                 print(f"File: {file_path}\nStatus: {status}")
                 if verification_output:
                     print(verification_output)
+                if signature_properties:
+                    print(signature_properties)
                 print()
 
     return findings
+
 
 def generate_report(report_file, findings):
     with open(report_file, 'w') as f:
